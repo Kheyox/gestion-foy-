@@ -1,0 +1,17 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Firebase - NE JAMAIS commiter ce fichier
+app/google-services.json
+
+# Keystore
+*.jks
+*.keystore
