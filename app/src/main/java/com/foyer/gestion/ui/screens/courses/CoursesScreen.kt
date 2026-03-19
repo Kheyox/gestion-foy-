@@ -24,6 +24,7 @@ import com.foyer.gestion.ui.theme.MeliShapes
 import com.foyer.gestion.viewmodel.AuthViewModel
 import com.foyer.gestion.viewmodel.CoursesViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CoursesScreen(
     onNavigateToListe: (String, String) -> Unit,
