@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
     alias(libs.plugins.hilt.android)
-    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -80,7 +80,7 @@ dependencies {
 
     // Hilt DI
     implementation(libs.hilt.android)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
     // DataStore
@@ -96,6 +96,3 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 }
 
-kapt {
-    correctErrorTypes = true
-}
