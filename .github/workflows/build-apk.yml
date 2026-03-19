@@ -40,7 +40,6 @@ jobs:
           retention-days: 30
 
       - name: Distribuer via Firebase App Distribution
-        if: ${{ secrets.FIREBASE_TOKEN != '' }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
