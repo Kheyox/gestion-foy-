@@ -48,6 +48,11 @@ fun HomeScreen(
     onNavigateToCourses: () -> Unit,
     onNavigateToTaches: () -> Unit,
     onNavigateToBudget: () -> Unit,
+    onNavigateToCalendrier: () -> Unit = {},
+    onNavigateToNotes: () -> Unit = {},
+    onNavigateToFrigo: () -> Unit = {},
+    onNavigateToRecettes: () -> Unit = {},
+    onNavigateToAnniversaires: () -> Unit = {},
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val authState by viewModel.authState.collectAsState()
@@ -58,13 +63,13 @@ fun HomeScreen(
 
     val tiles = listOf(
         MenuTile("🛒", "Courses",    CardMint,     null,         onNavigateToCourses),
-        MenuTile("📅", "Calendrier", CardYellow,   null)         {},
-        MenuTile("📝", "Notes",      CardPink,     null)         {},
-        MenuTile("🥘", "Au frigo",   CardBlue,     null)         {},
+        MenuTile("📅", "Calendrier", CardYellow,   null,         onNavigateToCalendrier),
+        MenuTile("📝", "Notes",      CardPink,     null,         onNavigateToNotes),
+        MenuTile("🥘", "Au frigo",   CardBlue,     null,         onNavigateToFrigo),
         MenuTile("✅", "Tâches",     CardTeal,     null,         onNavigateToTaches),
-        MenuTile("👨‍🍳","Recettes",   CardYellow,   null)         {},
+        MenuTile("👨‍🍳","Recettes",   CardYellow,   null,         onNavigateToRecettes),
         MenuTile("💰", "Budget",     CardPeach,    null,         onNavigateToBudget),
-        MenuTile("🎂", "Anniversaires", CardLavender, null)      {},
+        MenuTile("🎂", "Anniversaires", CardLavender, null,      onNavigateToAnniversaires),
         MenuTile("🐾", "Animaux",    CardSage,     null)         {},
         MenuTile("💆", "Bien-être",  CardMint,     null)         {},
     )
