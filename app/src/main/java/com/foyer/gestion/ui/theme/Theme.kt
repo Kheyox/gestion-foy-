@@ -63,7 +63,7 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun GestionFoyerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false, // désactivé pour conserver la palette Meli Melo
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
