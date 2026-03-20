@@ -108,6 +108,9 @@ dependencies {
     // Coil (chargement d'images)
     implementation(libs.coil.compose)
 
+    // OkHttp (client HTTP fiable pour Open Food Facts)
+    implementation(libs.okhttp)
+
     // WorkManager (notifications d'expiration)
     implementation(libs.work.runtime)
 

@@ -11,8 +11,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.util.concurrent.TimeUnit
 import java.net.URL
 import java.net.URLEncoder
 import java.util.UUID
@@ -98,43 +101,58 @@ class FrigoRepository @Inject constructor(
         } catch (e: Exception) { null }
     }
 
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+
     suspend fun rechercherSurInternet(query: String): List<ProduitInfo> = withContext(Dispatchers.IO) {
-        try {
-            val encoded = URLEncoder.encode(query, "UTF-8")
-            // API v2 REST (plus fiable que l'ancien endpoint CGI)
-            val conn = URL(
-                "https://world.openfoodfacts.org/api/v2/search?search_terms=$encoded&page_size=20"
-            ).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("User-Agent", "MonFoyer/1.0 (gestion foyer Android)")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.instanceFollowRedirects = true
-            conn.connectTimeout = 12000
-            conn.readTimeout = 15000
+        // Essayer plusieurs endpoints Open Food Facts en cascade
+        val encoded = URLEncoder.encode(query, "UTF-8")
+        val endpoints = listOf(
+            "https://world.openfoodfacts.org/api/v2/search?search_terms=$encoded&page_size=20",
+            "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&action=process&json=1&page_size=20"
+        )
 
-            val code = conn.responseCode
-            if (code != 200) return@withContext emptyList()
+        for (url in endpoints) {
+            val results = runCatching {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "MonFoyer/1.0 (contact@monfoyer.app)")
+                    .header("Accept", "application/json")
+                    .get()
+                    .build()
 
-            val json = JSONObject(conn.inputStream.bufferedReader().readText())
-            val products = json.optJSONArray("products") ?: return@withContext emptyList()
+                val response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful) return@runCatching emptyList()
 
-            (0 until products.length()).mapNotNull { i ->
-                val p = products.getJSONObject(i)
-                val nom = p.optString("product_name_fr")
-                    .ifEmpty { p.optString("product_name") }
-                    .ifEmpty { p.optString("abbreviated_product_name") }
-                if (nom.isBlank()) return@mapNotNull null
-                ProduitInfo(
-                    nom = nom,
-                    imageUrl = p.optString("image_front_small_url")
-                        .ifEmpty { p.optString("image_front_url") }
-                        .ifEmpty { null },
-                    marque = p.optString("brands").ifEmpty { null }
-                )
-            }.distinctBy { it.nom }.take(15)
-        } catch (e: Exception) {
-            android.util.Log.e("FrigoSearch", "Erreur recherche: ${e.javaClass.simpleName}: ${e.message}")
-            emptyList()
+                val body = response.body?.string() ?: return@runCatching emptyList()
+                val json = JSONObject(body)
+                val products = json.optJSONArray("products") ?: return@runCatching emptyList()
+
+                (0 until products.length()).mapNotNull { i ->
+                    val p = products.getJSONObject(i)
+                    val nom = p.optString("product_name_fr")
+                        .ifEmpty { p.optString("product_name") }
+                        .ifEmpty { p.optString("abbreviated_product_name") }
+                    if (nom.isBlank()) return@mapNotNull null
+                    ProduitInfo(
+                        nom = nom,
+                        imageUrl = p.optString("image_front_small_url")
+                            .ifEmpty { p.optString("image_front_url") }
+                            .ifEmpty { null },
+                        marque = p.optString("brands").ifEmpty { null }
+                    )
+                }.distinctBy { it.nom }.take(15)
+            }.getOrElse {
+                android.util.Log.e("FrigoSearch", "Échec $url : ${it.message}")
+                emptyList()
+            }
+
+            if (results.isNotEmpty()) return@withContext results
         }
+        emptyList()
     }
 }
