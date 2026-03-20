@@ -92,6 +92,73 @@ data class Budget(
     val transactions: List<Transaction> = emptyList()
 )
 
+// ─── Événement calendrier ─────────────────────────────────────────────────────
+
+data class Evenement(
+    val id: String = "",
+    val foyerId: String = "",
+    val titre: String = "",
+    val description: String = "",
+    val dateDebut: Timestamp = Timestamp.now(),
+    val dateFin: Timestamp? = null,
+    val couleur: String = "BLUE",
+    val creePar: String = "",
+    val creeLe: Timestamp = Timestamp.now()
+)
+
+// ─── Note ─────────────────────────────────────────────────────────────────────
+
+data class Note(
+    val id: String = "",
+    val foyerId: String = "",
+    val titre: String = "",
+    val contenu: String = "",
+    val creePar: String = "",
+    val creeLe: Timestamp = Timestamp.now(),
+    val modifieLe: Timestamp = Timestamp.now()
+)
+
+// ─── Article frigo ────────────────────────────────────────────────────────────
+
+data class ArticleFrigo(
+    val id: String = "",
+    val foyerId: String = "",
+    val nom: String = "",
+    val quantite: String = "",
+    val categorie: String = "Autre",
+    val dateExpiration: Timestamp? = null,
+    val ajoutePar: String = "",
+    val ajouteLe: Timestamp = Timestamp.now()
+)
+
+// ─── Recette ──────────────────────────────────────────────────────────────────
+
+data class Recette(
+    val id: String = "",
+    val foyerId: String = "",
+    val titre: String = "",
+    val ingredients: String = "",
+    val instructions: String = "",
+    val dureeMinutes: Int = 0,
+    val portions: Int = 4,
+    val ajoutePar: String = "",
+    val ajouteLe: Timestamp = Timestamp.now()
+)
+
+// ─── Anniversaire ─────────────────────────────────────────────────────────────
+
+data class Anniversaire(
+    val id: String = "",
+    val foyerId: String = "",
+    val prenom: String = "",
+    val nom: String = "",
+    val dateNaissance: Timestamp = Timestamp.now(),
+    val emoji: String = "🎂",
+    val note: String = "",
+    val ajoutePar: String = "",
+    val ajouteLe: Timestamp = Timestamp.now()
+)
+
 // ─── Catégories prédéfinies ───────────────────────────────────────────────────
 
 object Categories {
