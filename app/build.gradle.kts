@@ -86,6 +86,23 @@ dependencies {
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 
+    // CameraX
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+
+    // ML Kit Barcode Scanning
+    implementation(libs.mlkit.barcode)
+
+    // Coil (chargement d'images)
+    implementation(libs.coil.compose)
+
+    // WorkManager (notifications d'expiration)
+    implementation(libs.work.runtime)
+
+    // Accompanist Permissions (permission caméra)
+    implementation(libs.accompanist.permissions)
+
     // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

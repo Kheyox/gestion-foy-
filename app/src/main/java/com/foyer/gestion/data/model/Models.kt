@@ -125,10 +125,11 @@ data class ArticleFrigo(
     val foyerId: String = "",
     val nom: String = "",
     val quantite: String = "",
-    val categorie: String = "Autre",
+    val categorie: String = "Réfrigérateur",
     val dateExpiration: Timestamp? = null,
     val ajoutePar: String = "",
-    val ajouteLe: Timestamp = Timestamp.now()
+    val ajouteLe: Timestamp = Timestamp.now(),
+    val imageUrl: String? = null
 )
 
 // ─── Recette ──────────────────────────────────────────────────────────────────

@@ -5,13 +5,25 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+
+data class ProduitInfo(
+    val nom: String,
+    val imageUrl: String?,
+    val marque: String? = null
+)
 
 @Singleton
 class FrigoRepository @Inject constructor(
@@ -30,10 +42,26 @@ class FrigoRepository @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    suspend fun ajouterArticle(foyerId: String, nom: String, quantite: String, categorie: String, dateExpiration: Timestamp?): Result<Unit> {
+    suspend fun ajouterArticle(
+        foyerId: String,
+        nom: String,
+        quantite: String,
+        categorie: String,
+        dateExpiration: Timestamp?,
+        imageUrl: String? = null
+    ): Result<Unit> {
         val uid = auth.currentUser?.uid ?: return Result.failure(Exception("Non connecté"))
         return try {
-            val article = ArticleFrigo(UUID.randomUUID().toString(), foyerId, nom, quantite, categorie, dateExpiration, uid)
+            val article = ArticleFrigo(
+                id = UUID.randomUUID().toString(),
+                foyerId = foyerId,
+                nom = nom,
+                quantite = quantite,
+                categorie = categorie,
+                dateExpiration = dateExpiration,
+                ajoutePar = uid,
+                imageUrl = imageUrl
+            )
             frigoRef(foyerId).document(article.id).set(article).await()
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
@@ -44,5 +72,54 @@ class FrigoRepository @Inject constructor(
             frigoRef(foyerId).document(articleId).delete().await()
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
+    }
+
+    // ── Open Food Facts ────────────────────────────────────────────────────────
+
+    suspend fun rechercherParCodeBarre(barcode: String): ProduitInfo? = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("https://world.openfoodfacts.org/api/v0/product/$barcode.json")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.setRequestProperty("User-Agent", "MonFoyer-Android/1.0")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            if (conn.responseCode == 200) {
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                if (json.optInt("status", 0) == 1) {
+                    val product = json.getJSONObject("product")
+                    val nom = product.optString("product_name_fr")
+                        .ifEmpty { product.optString("product_name") }
+                        .ifEmpty { return@withContext null }
+                    val imageUrl = product.optString("image_front_url").ifEmpty { null }
+                    val marque = product.optString("brands").ifEmpty { null }
+                    ProduitInfo(nom, imageUrl, marque)
+                } else null
+            } else null
+        } catch (e: Exception) { null }
+    }
+
+    suspend fun rechercherSurInternet(query: String): List<ProduitInfo> = withContext(Dispatchers.IO) {
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val url = URL("https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&json=true&page_size=15&fields=product_name_fr,product_name,image_front_url,brands")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.setRequestProperty("User-Agent", "MonFoyer-Android/1.0")
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
+            if (conn.responseCode == 200) {
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                val products = json.optJSONArray("products") ?: return@withContext emptyList()
+                (0 until products.length()).mapNotNull { i ->
+                    val p = products.getJSONObject(i)
+                    val nom = p.optString("product_name_fr").ifEmpty { p.optString("product_name") }
+                    if (nom.isBlank()) return@mapNotNull null
+                    ProduitInfo(
+                        nom = nom,
+                        imageUrl = p.optString("image_front_url").ifEmpty { null },
+                        marque = p.optString("brands").ifEmpty { null }
+                    )
+                }.distinctBy { it.nom }
+            } else emptyList()
+        } catch (e: Exception) { emptyList() }
     }
 }
