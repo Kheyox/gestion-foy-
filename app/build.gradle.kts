@@ -21,10 +21,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("monfoyer") {
+            storeFile = file("monfoyer.keystore")
+            storePassword = "monfoyer2024"
+            keyAlias = "monfoyer"
+            keyPassword = "monfoyer2024"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("monfoyer")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -32,6 +42,7 @@ android {
         }
         debug {
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("monfoyer")
         }
     }
 

@@ -12,6 +12,6 @@ local.properties
 # Firebase - NE JAMAIS commiter ce fichier
 app/google-services.json
 
-# Keystore
+# Keystore (NE PAS ignorer monfoyer.keystore - signature fixe nécessaire)
 *.jks
-*.keystore
+!app/monfoyer.keystore
