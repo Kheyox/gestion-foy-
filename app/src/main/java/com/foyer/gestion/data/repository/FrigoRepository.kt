@@ -101,16 +101,23 @@ class FrigoRepository @Inject constructor(
     suspend fun rechercherSurInternet(query: String): List<ProduitInfo> = withContext(Dispatchers.IO) {
         try {
             val encoded = URLEncoder.encode(query, "UTF-8")
-            // URL simplifiée sans paramètre fields= (cause de blocage sur certains réseaux)
+            // API v2 REST (plus fiable que l'ancien endpoint CGI)
             val conn = URL(
-                "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&json=1&action=process&page_size=20"
+                "https://world.openfoodfacts.org/api/v2/search?search_terms=$encoded&page_size=20"
             ).openConnection() as HttpURLConnection
-            conn.setRequestProperty("User-Agent", "MonFoyer-Android/1.0")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            if (conn.responseCode != 200) return@withContext emptyList()
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "MonFoyer/1.0 (gestion foyer Android)")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.instanceFollowRedirects = true
+            conn.connectTimeout = 12000
+            conn.readTimeout = 15000
+
+            val code = conn.responseCode
+            if (code != 200) return@withContext emptyList()
+
             val json = JSONObject(conn.inputStream.bufferedReader().readText())
             val products = json.optJSONArray("products") ?: return@withContext emptyList()
+
             (0 until products.length()).mapNotNull { i ->
                 val p = products.getJSONObject(i)
                 val nom = p.optString("product_name_fr")
@@ -125,6 +132,9 @@ class FrigoRepository @Inject constructor(
                     marque = p.optString("brands").ifEmpty { null }
                 )
             }.distinctBy { it.nom }.take(15)
-        } catch (e: Exception) { emptyList() }
+        } catch (e: Exception) {
+            android.util.Log.e("FrigoSearch", "Erreur recherche: ${e.javaClass.simpleName}: ${e.message}")
+            emptyList()
+        }
     }
 }
