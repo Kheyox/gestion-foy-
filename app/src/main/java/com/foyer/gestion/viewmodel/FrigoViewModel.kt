@@ -68,9 +68,10 @@ class FrigoViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, mode = FrigoMode.ADDING)
             val produit = repo.rechercherParCodeBarre(barcode)
+            // Si produit non trouvé, on ouvre quand même le formulaire avec nom vide
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                produitPreselectionne = produit
+                produitPreselectionne = produit ?: ProduitInfo("", null)
             )
         }
     }

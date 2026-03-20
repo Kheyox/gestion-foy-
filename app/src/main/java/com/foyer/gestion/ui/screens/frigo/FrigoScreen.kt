@@ -227,8 +227,11 @@ fun FrigoScreen(
 
     // Sheet sélection méthode
     var showMethodSheet by remember { mutableStateOf(false) }
-    LaunchedEffect(uiState.mode) {
-        showMethodSheet = uiState.mode == FrigoMode.ADDING && uiState.produitPreselectionne == null && !uiState.isLoading
+    // Afficher la sheet méthode dès que le mode passe à ADDING sans produit pré-sélectionné et sans chargement
+    LaunchedEffect(uiState.mode, uiState.produitPreselectionne, uiState.isLoading) {
+        showMethodSheet = uiState.mode == FrigoMode.ADDING
+                && uiState.produitPreselectionne == null
+                && !uiState.isLoading
     }
 
     if (showMethodSheet) {
@@ -489,6 +492,13 @@ private fun RechercheInternetSheet(
     var localQuery by remember { mutableStateOf(query) }
     val keyboard = LocalSoftwareKeyboardController.current
 
+    fun doSearch() {
+        if (localQuery.isNotBlank()) {
+            onSearch(localQuery)
+            keyboard?.hide()
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = FrigoCard,
@@ -515,33 +525,55 @@ private fun RechercheInternetSheet(
             }
             Spacer(Modifier.height(12.dp))
 
-            OutlinedTextField(
-                value = localQuery,
-                onValueChange = { localQuery = it },
-                placeholder = { Text("Ex: Lait, Yaourts...", color = FrigoMuted) },
-                leadingIcon = { Icon(Icons.Default.Search, null, tint = FrigoMuted) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = {
-                    onSearch(localQuery)
-                    keyboard?.hide()
-                }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = FrigoAccent,
-                    unfocusedBorderColor = FrigoTab,
-                    focusedTextColor = FrigoText,
-                    unfocusedTextColor = FrigoText,
-                    cursorColor = FrigoAccent
-                ),
-                shape = MeliShapes.input,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = localQuery,
+                    onValueChange = { localQuery = it },
+                    placeholder = { Text("Ex: Lait, Danette...", color = FrigoMuted) },
+                    leadingIcon = { Icon(Icons.Default.Search, null, tint = FrigoMuted) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { doSearch() }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = FrigoAccent,
+                        unfocusedBorderColor = FrigoTab,
+                        focusedTextColor = FrigoText,
+                        unfocusedTextColor = FrigoText,
+                        cursorColor = FrigoAccent
+                    ),
+                    shape = MeliShapes.input,
+                    modifier = Modifier.weight(1f)
+                )
+                // Bouton recherche explicite
+                IconButton(
+                    onClick = { doSearch() },
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(FrigoAccent, RoundedCornerShape(14.dp))
+                ) {
+                    Icon(Icons.Default.Search, "Chercher", tint = FrigoBg, modifier = Modifier.size(22.dp))
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             Spacer(Modifier.height(12.dp))
 
             if (isSearching) {
-                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = FrigoAccent)
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = FrigoAccent)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Recherche en cours...", color = FrigoMuted, fontSize = 13.sp)
+                    }
+                }
+            } else if (results.isEmpty() && localQuery.isNotBlank()) {
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Text("Aucun résultat pour \"$localQuery\"", color = FrigoMuted, fontSize = 14.sp)
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {

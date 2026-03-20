@@ -78,48 +78,53 @@ class FrigoRepository @Inject constructor(
 
     suspend fun rechercherParCodeBarre(barcode: String): ProduitInfo? = withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://world.openfoodfacts.org/api/v0/product/$barcode.json")
-            val conn = url.openConnection() as HttpURLConnection
+            val conn = URL("https://world.openfoodfacts.org/api/v0/product/$barcode.json")
+                .openConnection() as HttpURLConnection
             conn.setRequestProperty("User-Agent", "MonFoyer-Android/1.0")
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            if (conn.responseCode == 200) {
-                val json = JSONObject(conn.inputStream.bufferedReader().readText())
-                if (json.optInt("status", 0) == 1) {
-                    val product = json.getJSONObject("product")
-                    val nom = product.optString("product_name_fr")
-                        .ifEmpty { product.optString("product_name") }
-                        .ifEmpty { return@withContext null }
-                    val imageUrl = product.optString("image_front_url").ifEmpty { null }
-                    val marque = product.optString("brands").ifEmpty { null }
-                    ProduitInfo(nom, imageUrl, marque)
-                } else null
-            } else null
+            conn.connectTimeout = 6000
+            conn.readTimeout = 6000
+            if (conn.responseCode != 200) return@withContext null
+            val json = JSONObject(conn.inputStream.bufferedReader().readText())
+            if (json.optInt("status", 0) != 1) return@withContext null
+            val product = json.getJSONObject("product")
+            val nom = product.optString("product_name_fr")
+                .ifEmpty { product.optString("product_name") }
+            if (nom.isBlank()) return@withContext null
+            ProduitInfo(
+                nom = nom,
+                imageUrl = product.optString("image_front_url").ifEmpty { null },
+                marque = product.optString("brands").ifEmpty { null }
+            )
         } catch (e: Exception) { null }
     }
 
     suspend fun rechercherSurInternet(query: String): List<ProduitInfo> = withContext(Dispatchers.IO) {
         try {
             val encoded = URLEncoder.encode(query, "UTF-8")
-            val url = URL("https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&json=true&page_size=15&fields=product_name_fr,product_name,image_front_url,brands")
-            val conn = url.openConnection() as HttpURLConnection
+            // URL simplifiée sans paramètre fields= (cause de blocage sur certains réseaux)
+            val conn = URL(
+                "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&json=1&action=process&page_size=20"
+            ).openConnection() as HttpURLConnection
             conn.setRequestProperty("User-Agent", "MonFoyer-Android/1.0")
-            conn.connectTimeout = 8000
-            conn.readTimeout = 8000
-            if (conn.responseCode == 200) {
-                val json = JSONObject(conn.inputStream.bufferedReader().readText())
-                val products = json.optJSONArray("products") ?: return@withContext emptyList()
-                (0 until products.length()).mapNotNull { i ->
-                    val p = products.getJSONObject(i)
-                    val nom = p.optString("product_name_fr").ifEmpty { p.optString("product_name") }
-                    if (nom.isBlank()) return@mapNotNull null
-                    ProduitInfo(
-                        nom = nom,
-                        imageUrl = p.optString("image_front_url").ifEmpty { null },
-                        marque = p.optString("brands").ifEmpty { null }
-                    )
-                }.distinctBy { it.nom }
-            } else emptyList()
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            if (conn.responseCode != 200) return@withContext emptyList()
+            val json = JSONObject(conn.inputStream.bufferedReader().readText())
+            val products = json.optJSONArray("products") ?: return@withContext emptyList()
+            (0 until products.length()).mapNotNull { i ->
+                val p = products.getJSONObject(i)
+                val nom = p.optString("product_name_fr")
+                    .ifEmpty { p.optString("product_name") }
+                    .ifEmpty { p.optString("abbreviated_product_name") }
+                if (nom.isBlank()) return@mapNotNull null
+                ProduitInfo(
+                    nom = nom,
+                    imageUrl = p.optString("image_front_small_url")
+                        .ifEmpty { p.optString("image_front_url") }
+                        .ifEmpty { null },
+                    marque = p.optString("brands").ifEmpty { null }
+                )
+            }.distinctBy { it.nom }.take(15)
         } catch (e: Exception) { emptyList() }
     }
 }
