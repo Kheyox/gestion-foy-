@@ -64,8 +64,17 @@ fun FrigoScreen(
     val uiState by viewModel.uiState.collectAsState()
     val foyerId = authViewModel.authState.collectAsState().value.foyerId ?: ""
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
+    var pendingScan by remember { mutableStateOf(false) }
 
     LaunchedEffect(foyerId) { if (foyerId.isNotEmpty()) viewModel.observer(foyerId) }
+
+    // Quand la permission vient d'être accordée et qu'on voulait scanner : lancer le scanner
+    LaunchedEffect(cameraPermission.status.isGranted) {
+        if (pendingScan && cameraPermission.status.isGranted) {
+            pendingScan = false
+            viewModel.setMode(FrigoMode.SCANNING)
+        }
+    }
 
     // Mode scanner en plein écran
     if (uiState.mode == FrigoMode.SCANNING) {
@@ -77,8 +86,10 @@ fun FrigoScreen(
                 onDismiss = { viewModel.setMode(FrigoMode.NORMAL) }
             )
         } else {
-            LaunchedEffect(Unit) { cameraPermission.launchPermissionRequest() }
-            viewModel.setMode(FrigoMode.NORMAL)
+            // Permission refusée : revenir à l'écran normal (SideEffect, pas en composition)
+            LaunchedEffect(Unit) {
+                viewModel.setMode(FrigoMode.NORMAL)
+            }
         }
         return
     }
@@ -238,9 +249,12 @@ fun FrigoScreen(
         MethodeAjoutSheet(
             onScannerCode = {
                 showMethodSheet = false
+                viewModel.setMode(FrigoMode.NORMAL) // reset d'abord
                 if (cameraPermission.status.isGranted) {
                     viewModel.setMode(FrigoMode.SCANNING)
                 } else {
+                    // Demander la permission, le LaunchedEffect relancera le scanner après accord
+                    pendingScan = true
                     cameraPermission.launchPermissionRequest()
                 }
             },
@@ -572,8 +586,20 @@ private fun RechercheInternetSheet(
                     }
                 }
             } else if (results.isEmpty() && localQuery.isNotBlank()) {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Text("Aucun résultat pour \"$localQuery\"", color = FrigoMuted, fontSize = 14.sp)
+                    // Fallback : utiliser directement le texte saisi comme nom du produit
+                    Button(
+                        onClick = { onSelect(ProduitInfo(localQuery, null)) },
+                        shape = MeliShapes.pill,
+                        colors = ButtonDefaults.buttonColors(containerColor = FrigoAccent, contentColor = FrigoBg)
+                    ) {
+                        Text("Ajouter \"$localQuery\" manuellement", fontWeight = FontWeight.SemiBold)
+                    }
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {

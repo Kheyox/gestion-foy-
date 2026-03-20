@@ -14,9 +14,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.net.HttpURLConnection
 import java.util.concurrent.TimeUnit
-import java.net.URL
 import java.net.URLEncoder
 import java.util.UUID
 import javax.inject.Inject
@@ -79,34 +77,43 @@ class FrigoRepository @Inject constructor(
 
     // ── Open Food Facts ────────────────────────────────────────────────────────
 
-    suspend fun rechercherParCodeBarre(barcode: String): ProduitInfo? = withContext(Dispatchers.IO) {
-        try {
-            val conn = URL("https://world.openfoodfacts.org/api/v0/product/$barcode.json")
-                .openConnection() as HttpURLConnection
-            conn.setRequestProperty("User-Agent", "MonFoyer-Android/1.0")
-            conn.connectTimeout = 6000
-            conn.readTimeout = 6000
-            if (conn.responseCode != 200) return@withContext null
-            val json = JSONObject(conn.inputStream.bufferedReader().readText())
-            if (json.optInt("status", 0) != 1) return@withContext null
-            val product = json.getJSONObject("product")
-            val nom = product.optString("product_name_fr")
-                .ifEmpty { product.optString("product_name") }
-            if (nom.isBlank()) return@withContext null
-            ProduitInfo(
-                nom = nom,
-                imageUrl = product.optString("image_front_url").ifEmpty { null },
-                marque = product.optString("brands").ifEmpty { null }
-            )
-        } catch (e: Exception) { null }
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(12, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
     }
 
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
+    private fun offGet(url: String): String? {
+        return try {
+            val req = Request.Builder()
+                .url(url)
+                .header("User-Agent", "MonFoyer/1.0 (contact@monfoyer.app)")
+                .header("Accept", "application/json")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            if (resp.isSuccessful) resp.body?.string() else null
+        } catch (e: Exception) {
+            android.util.Log.e("FrigoHttp", "GET $url → ${e.message}")
+            null
+        }
+    }
+
+    suspend fun rechercherParCodeBarre(barcode: String): ProduitInfo? = withContext(Dispatchers.IO) {
+        val body = offGet("https://world.openfoodfacts.org/api/v0/product/$barcode.json") ?: return@withContext null
+        val json = runCatching { JSONObject(body) }.getOrNull() ?: return@withContext null
+        if (json.optInt("status", 0) != 1) return@withContext null
+        val product = json.getJSONObject("product")
+        val nom = product.optString("product_name_fr").ifEmpty { product.optString("product_name") }
+        if (nom.isBlank()) return@withContext null
+        ProduitInfo(
+            nom = nom,
+            imageUrl = product.optString("image_front_url").ifEmpty { null },
+            marque = product.optString("brands").ifEmpty { null }
+        )
+    }
 
     suspend fun rechercherSurInternet(query: String): List<ProduitInfo> = withContext(Dispatchers.IO) {
         // Essayer plusieurs endpoints Open Food Facts en cascade
